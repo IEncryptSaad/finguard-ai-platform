@@ -79,6 +79,27 @@ Requests enter the versioned FastAPI router and are delegated to `AgentOrchestra
 - `GET/POST/PUT/DELETE /api/v1/knowledge`, `GET /api/v1/knowledge?q=...`, and `POST /api/v1/knowledge/ingest` for TXT, Markdown, simple PDF text extraction, and DOCX ingestion.
 - `GET /api/v1/audit`, `/analytics`, `/settings`, `/plugins`, and `/health` for operations.
 
+
+## v1 release-candidate readiness
+
+This branch finalizes FinGuard as a deployable v1 release candidate without adding paid services or major new modules. The default path remains keyless mock mode, with optional providers/connectors disabled until configured.
+
+Release docs:
+
+- Quickstart: `docs/quickstart.md`
+- Deployment: `docs/deployment-v1.md`
+- Architecture: `docs/architecture-v1.md`
+- Provider/plugin/connector guide: `docs/providers-connectors.md`
+- Product demo guide: `docs/demo-guide.md`
+- Limitations: `docs/limitations.md`
+- Roadmap: `docs/roadmap.md`
+
+Deployment artifacts:
+
+- Render backend blueprint: `render.yaml`
+- Vercel frontend config: `apps/web/vercel.json`
+- Supabase seed data: `apps/api/supabase/seed.sql`
+
 ## Documentation
 
 - Architecture: `docs/architecture.md`
