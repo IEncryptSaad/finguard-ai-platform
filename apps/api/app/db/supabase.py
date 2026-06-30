@@ -19,17 +19,20 @@ class SupabaseRepository(AppRepository):
         self.base_url = settings.supabase_url.rstrip('/') + '/rest/v1'
         self.service_role_key = settings.supabase_service_role_key
 
-    def _headers(self) -> dict[str, str]:
-        return {
+    def _headers(self, *, upsert: bool = False) -> dict[str, str]:
+        headers = {
             'apikey': self.service_role_key,
             'Authorization': f'Bearer {self.service_role_key}',
             'Content-Type': 'application/json',
-            'Prefer': 'return=minimal,resolution=merge-duplicates',
+            'Prefer': 'return=minimal',
         }
+        if upsert:
+            headers['Prefer'] = 'return=minimal,resolution=merge-duplicates'
+        return headers
 
-    def _request(self, method: str, table: str, body: Any | None = None, query: str = '') -> Any:
+    def _request(self, method: str, table: str, body: Any | None = None, query: str = '', *, upsert: bool = False) -> Any:
         data = None if body is None else json.dumps(body, default=lambda o: o.model_dump() if hasattr(o, 'model_dump') else o).encode()
-        req = request.Request(f'{self.base_url}/{table}{query}', data=data, headers=self._headers(), method=method)
+        req = request.Request(f'{self.base_url}/{table}{query}', data=data, headers=self._headers(upsert=upsert), method=method)
         try:
             with request.urlopen(req, timeout=10) as resp:
                 payload = resp.read().decode()
@@ -43,7 +46,7 @@ class SupabaseRepository(AppRepository):
     def put(self, table: str, key: str, value: Any) -> None:
         payload = value.model_dump() if hasattr(value, 'model_dump') else dict(value)
         payload['id'] = key
-        self._request('POST', table, payload, query='?on_conflict=id')
+        self._request('POST', table, payload, query='?on_conflict=id', upsert=True)
 
     def append(self, table: str, value: Any) -> None:
         self._request('POST', table, value.model_dump() if hasattr(value, 'model_dump') else value)

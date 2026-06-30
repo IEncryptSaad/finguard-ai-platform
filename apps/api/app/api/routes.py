@@ -31,9 +31,9 @@ def orchestrator(settings: Settings = Depends(get_settings)) -> AgentOrchestrato
         raise HTTPException(status_code=503, detail={'reason':'AI provider is not configured','provider_error':str(exc)})
 
 @router.post('/chat', response_model=ChatResponse)
-async def chat(payload: ChatRequest, agent: AgentOrchestrator = Depends(orchestrator), user=Depends(require_chat_access)): return await agent.handle_chat(payload.message, payload.conversation_id, payload.user_id)
+async def chat(payload: ChatRequest, user=Depends(require_chat_access), agent: AgentOrchestrator = Depends(orchestrator)): return await agent.handle_chat(payload.message, payload.conversation_id, payload.user_id)
 @router.post('/chat/stream')
-async def chat_stream(payload: ChatRequest, agent: AgentOrchestrator = Depends(orchestrator), user=Depends(require_chat_access)):
+async def chat_stream(payload: ChatRequest, user=Depends(require_chat_access), agent: AgentOrchestrator = Depends(orchestrator)):
     async def gen():
         yield 'event: metadata\ndata: {"status":"started"}\n\n'
         try:
