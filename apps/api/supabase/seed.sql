@@ -41,4 +41,10 @@ insert into tickets (id, conversation_id, summary, status, priority, assignee, i
     'agent-demo',
     '["Demo note: use to demonstrate ticket filtering and audit trail."]'::jsonb
   )
-on conflict do nothing;
+on conflict (id) do update set
+  conversation_id = excluded.conversation_id,
+  summary = excluded.summary,
+  status = excluded.status,
+  priority = excluded.priority,
+  assignee = excluded.assignee,
+  internal_notes = excluded.internal_notes;

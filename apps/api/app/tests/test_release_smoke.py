@@ -91,8 +91,9 @@ def test_supabase_seed_ticket_rows_match_current_schema():
     assert conversations_sql is not None
     seeded_conversation_ids = set(re.findall(r"'([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})'", conversations_sql.group(1)))
 
-    ticket_sql = re.search(r"insert into tickets \(id, conversation_id, summary, status, priority, assignee, internal_notes\) values([\s\S]*?)on conflict do nothing;", sql)
+    ticket_sql = re.search(r"insert into tickets \(id, conversation_id, summary, status, priority, assignee, internal_notes\) values([\s\S]*?)on conflict \(id\) do update set[\s\S]*?internal_notes = excluded\.internal_notes;", sql)
     assert ticket_sql is not None
+    assert 'internal_notes = excluded.internal_notes' in ticket_sql.group(0)
 
     ticket_conversation_ids = re.findall(r"\n\s*'([0-9a-f-]{36})',\n\s*'([0-9a-f-]{36})',", ticket_sql.group(1))
     assert ticket_conversation_ids
