@@ -7,3 +7,6 @@ __pycache__/
 node_modules/
 dist/
 .coverage
+*.tsbuildinfo
+.finguard-data.json
+apps/api/.finguard-data.json
