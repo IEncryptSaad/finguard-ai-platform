@@ -153,3 +153,163 @@ def test_docs_csp_allows_swagger_assets_but_api_stays_strict():
     assert 'cdn.jsdelivr.net' in docs_csp
     assert "'unsafe-inline'" in docs_csp
     assert client.get('/api/v1/health').headers['content-security-policy'] == "default-src 'self'"
+
+
+def test_supabase_append_uses_plain_insert_headers(monkeypatch):
+    import json
+    from app.core.config import Settings
+    from app.db import supabase
+    from app.db.supabase import SupabaseRepository
+
+    captured = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            return False
+        def read(self):
+            return b''
+
+    def fake_urlopen(req, timeout):
+        captured['method'] = req.get_method()
+        captured['url'] = req.full_url
+        captured['prefer'] = req.get_header('Prefer')
+        captured['body'] = json.loads(req.data.decode())
+        return FakeResponse()
+
+    monkeypatch.setattr(supabase.request, 'urlopen', fake_urlopen)
+    repo = SupabaseRepository(Settings(supabase_url='https://example.supabase.co', supabase_service_role_key='service-role'))
+
+    repo.append('audit_logs', {'event_type': 'chat', 'payload': {'ok': True}})
+
+    assert captured['method'] == 'POST'
+    assert captured['url'] == 'https://example.supabase.co/rest/v1/audit_logs'
+    assert captured['prefer'] == 'return=minimal'
+    assert 'resolution=merge-duplicates' not in captured['prefer']
+    assert 'id' not in captured['body']
+
+
+def test_supabase_put_keeps_upsert_resolution_headers(monkeypatch):
+    import json
+    from app.core.config import Settings
+    from app.db import supabase
+    from app.db.supabase import SupabaseRepository
+
+    captured = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            return False
+        def read(self):
+            return b''
+
+    def fake_urlopen(req, timeout):
+        captured['url'] = req.full_url
+        captured['prefer'] = req.get_header('Prefer')
+        captured['body'] = json.loads(req.data.decode())
+        return FakeResponse()
+
+    monkeypatch.setattr(supabase.request, 'urlopen', fake_urlopen)
+    repo = SupabaseRepository(Settings(supabase_url='https://example.supabase.co', supabase_service_role_key='service-role'))
+
+    repo.put('tickets', 'ticket-1', {'summary': 'hello'})
+
+    assert captured['url'] == 'https://example.supabase.co/rest/v1/tickets?on_conflict=id'
+    assert captured['prefer'] == 'return=minimal,resolution=merge-duplicates'
+    assert captured['body']['id'] == 'ticket-1'
+
+
+def test_audit_log_supabase_append_allows_database_id_default(monkeypatch):
+    import json
+    from app.core.config import get_settings
+    from app.db import supabase
+    from app.services import repository
+    from app.services.audit import log_event
+
+    captured = {}
+    previous_repo = repository._REPO
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            return False
+        def read(self):
+            return b''
+
+    def fake_urlopen(req, timeout):
+        captured['url'] = req.full_url
+        captured['prefer'] = req.get_header('Prefer')
+        captured['body'] = json.loads(req.data.decode())
+        return FakeResponse()
+
+    monkeypatch.setattr(supabase.request, 'urlopen', fake_urlopen)
+    monkeypatch.setenv('SUPABASE_URL', 'https://example.supabase.co')
+    monkeypatch.setenv('SUPABASE_SERVICE_ROLE_KEY', 'service-role')
+    get_settings.cache_clear()
+    repository._REPO = None
+    try:
+        event = log_event('review_test', {'actor': 'reviewer@example.com', 'value': 1})
+    finally:
+        repository._REPO = previous_repo
+        monkeypatch.delenv('SUPABASE_URL', raising=False)
+        monkeypatch.delenv('SUPABASE_SERVICE_ROLE_KEY', raising=False)
+        get_settings.cache_clear()
+
+    assert event['event_type'] == 'review_test'
+    assert captured['url'] == 'https://example.supabase.co/rest/v1/audit_logs'
+    assert captured['prefer'] == 'return=minimal'
+    assert 'resolution=merge-duplicates' not in captured['prefer']
+    assert captured['body']['event_type'] == 'review_test'
+    assert 'id' not in captured['body']
+
+
+def test_anonymous_chat_auth_required_precedes_unconfigured_provider(monkeypatch):
+    from app.core.config import get_settings
+    from app.services import settings as settings_service
+
+    previous_settings = settings_service._SETTINGS
+    monkeypatch.setenv('AUTH_REQUIRED', 'true')
+    monkeypatch.setenv('LLM_PROVIDER', 'openai')
+    monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+    get_settings.cache_clear()
+    settings_service._SETTINGS = None
+    try:
+        client = TestClient(app)
+        response = client.post('/api/v1/chat', json={'message': 'hello'})
+        assert response.status_code == 401
+
+        authorized = client.post('/api/v1/chat', headers={'X-FinGuard-Role': 'customer'}, json={'message': 'hello'})
+        assert authorized.status_code == 503
+    finally:
+        settings_service._SETTINGS = previous_settings
+        monkeypatch.delenv('AUTH_REQUIRED', raising=False)
+        monkeypatch.delenv('LLM_PROVIDER', raising=False)
+        get_settings.cache_clear()
+
+
+def test_anonymous_stream_auth_required_precedes_unconfigured_provider(monkeypatch):
+    from app.core.config import get_settings
+    from app.services import settings as settings_service
+
+    previous_settings = settings_service._SETTINGS
+    monkeypatch.setenv('AUTH_REQUIRED', 'true')
+    monkeypatch.setenv('LLM_PROVIDER', 'openai')
+    monkeypatch.delenv('OPENAI_API_KEY', raising=False)
+    get_settings.cache_clear()
+    settings_service._SETTINGS = None
+    try:
+        client = TestClient(app)
+        response = client.post('/api/v1/chat/stream', json={'message': 'hello'})
+        assert response.status_code == 401
+
+        authorized = client.post('/api/v1/chat/stream', headers={'X-FinGuard-Role': 'customer'}, json={'message': 'hello'})
+        assert authorized.status_code == 503
+    finally:
+        settings_service._SETTINGS = previous_settings
+        monkeypatch.delenv('AUTH_REQUIRED', raising=False)
+        monkeypatch.delenv('LLM_PROVIDER', raising=False)
+        get_settings.cache_clear()
