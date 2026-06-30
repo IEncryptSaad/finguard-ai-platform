@@ -2,10 +2,14 @@ import time
 from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from app.core.config import get_settings
 _BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 def rate_limit_middleware(limit: int, window_seconds: int):
     async def middleware(request: Request, call_next):
         from app.services.settings import get_app_settings
+        settings = get_settings()
+        if settings.auth_required and not settings.public_customer_chat and request.url.path.startswith("/api/v1/chat") and request.headers.get("x-finguard-role") is None:
+            return await call_next(request)
         current_limit = get_app_settings().rate_limit_per_minute
         key = request.client.host if request.client else "unknown"; now=time.time(); bucket=_BUCKETS[key]
         while bucket and now-bucket[0] > window_seconds: bucket.popleft()

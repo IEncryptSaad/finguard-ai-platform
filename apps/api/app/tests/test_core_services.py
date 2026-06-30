@@ -110,7 +110,8 @@ def test_knowledge_create_accepts_payload_without_id():
 
 
 def test_chat_schema_root_references_chat_request_contract():
-    schema = json.loads(Path("../../packages/shared/schemas/chat.schema.json").read_text())
+    schema_path = Path(__file__).resolve().parents[4] / "packages/shared/schemas/chat.schema.json"
+    schema = json.loads(schema_path.read_text())
     assert schema["$ref"] == "#/definitions/ChatRequest"
     request_schema = schema["definitions"]["ChatRequest"]
     assert request_schema["required"] == ["message"]
