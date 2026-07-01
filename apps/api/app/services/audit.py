@@ -12,4 +12,10 @@ def log_event(event_type: str, payload: dict[str, Any], actor: str | None = None
         pass
     return event
 def events() -> list[dict[str, Any]]:
+    if not _EVENTS:
+        try:
+            from app.services.repository import get_repository
+            _EVENTS.extend(get_repository().list('audit_logs'))
+        except Exception:
+            pass
     return list(_EVENTS)

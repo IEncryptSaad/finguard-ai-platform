@@ -452,3 +452,43 @@ def test_openapi_is_versioned_and_documents_error_schema():
     payload = openapi.json()
     assert payload["info"]["version"] == "1.0.0-rc1"
     assert "ErrorResponse" in payload["components"]["schemas"]
+
+
+def test_supabase_repository_payload_matches_mvp_schema():
+    from app.db.supabase import SupabaseRepository
+    from app.core.config import Settings
+
+    repo = SupabaseRepository(Settings(supabase_url="https://example.supabase.co", supabase_service_role_key="test-key"))
+
+    ticket_payload = repo._clean_payload(
+        "tickets",
+        {
+            "id": "2f9033fe-f0df-44c2-9fdd-b907a5f27ea4",
+            "conversation_id": "8cbaaa92-3530-42ca-95f8-364aa29c5e46",
+            "summary": "Need help",
+            "status": "open",
+            "priority": "normal",
+            "assignee": "agent-1",
+            "internal_notes": ["private"],
+        },
+    )
+    assert ticket_payload == {
+        "id": "2f9033fe-f0df-44c2-9fdd-b907a5f27ea4",
+        "conversation_id": "8cbaaa92-3530-42ca-95f8-364aa29c5e46",
+        "summary": "Need help",
+        "status": "open",
+        "priority": "normal",
+    }
+
+    audit_payload = repo._clean_payload(
+        "audit_logs",
+        {"event_type": "chat.received", "payload": {"ok": True}, "actor": "system", "created_at": "2026-07-01T00:00:00Z"},
+    )
+    assert audit_payload == {"event_type": "chat.received", "payload": {"ok": True}, "created_at": "2026-07-01T00:00:00Z"}
+
+    conversation_payload = repo._clean_payload(
+        "conversations",
+        {"id": "not-a-uuid-session", "user_id": "customer-browser", "status": "open", "created_at": "now", "updated_at": "now"},
+    )
+    assert conversation_payload["id"] == "not-a-uuid-session"
+    assert conversation_payload["user_id"] is None
