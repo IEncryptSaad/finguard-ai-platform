@@ -38,8 +38,13 @@ const truncate = (value = '', length = 150) => value.length > length ? `${value.
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
+const sortTopEntries = (entries: [string, number][]) => [...entries].sort(([labelA, countA], [labelB, countB]) => {
+  if (countA !== countB) return countB - countA;
+  return labelA.localeCompare(labelB);
+});
+
 const entriesFromCountMap = (value: unknown) => isRecord(value)
-  ? Object.entries(value).map(([label, count]) => [label, asNumber(count)] as [string, number]).filter(([, count]) => count > 0)
+  ? sortTopEntries(Object.entries(value).map(([label, count]) => [label, asNumber(count)] as [string, number]).filter(([, count]) => count > 0))
   : [];
 
 const entriesFromStringList = (value: unknown) => {
@@ -50,7 +55,7 @@ const entriesFromStringList = (value: unknown) => {
     const label = item.trim();
     counts.set(label, (counts.get(label) ?? 0) + 1);
   });
-  return Array.from(counts.entries());
+  return sortTopEntries(Array.from(counts.entries()));
 };
 
 const knowledgeGapLabel = (value: unknown) => {
@@ -69,7 +74,7 @@ const entriesFromKnowledgeGaps = (value: unknown) => {
     if (!label) return;
     counts.set(label, (counts.get(label) ?? 0) + 1);
   });
-  return Array.from(counts.entries());
+  return sortTopEntries(Array.from(counts.entries()));
 };
 
 const badgeTone = (value?: string) => {
