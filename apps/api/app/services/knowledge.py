@@ -1,5 +1,6 @@
 from pathlib import Path
 from uuid import uuid4
+from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from app.models.schemas import KnowledgeArticle
 from app.services.audit import log_event
@@ -23,7 +24,7 @@ def seed_articles():
 
 
 def create_article(title: str, body: str, tags: list[str] | None = None) -> KnowledgeArticle:
-    a = KnowledgeArticle(id=str(uuid4()), title=title.strip(), body=body.strip(), tags=tags or [])
+    a = KnowledgeArticle(id=str(uuid4()), title=title.strip(), body=body.strip(), tags=tags or [], updated_at=datetime.now(timezone.utc).isoformat())
     _ARTICLES[a.id] = a
     log_event("knowledge.created", {"article_id": a.id})
     return a
@@ -37,7 +38,7 @@ def list_articles() -> list[KnowledgeArticle]:
 def update_article(article_id: str, title: str, body: str, tags: list[str] | None = None) -> KnowledgeArticle:
     if article_id not in _ARTICLES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge article not found")
-    a = KnowledgeArticle(id=article_id, title=title.strip(), body=body.strip(), tags=tags or [])
+    a = KnowledgeArticle(id=article_id, title=title.strip(), body=body.strip(), tags=tags or [], updated_at=datetime.now(timezone.utc).isoformat())
     _ARTICLES[article_id] = a
     log_event("knowledge.updated", {"article_id": article_id})
     return a

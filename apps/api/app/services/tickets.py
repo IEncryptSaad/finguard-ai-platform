@@ -1,4 +1,5 @@
 from uuid import uuid4
+from datetime import datetime, timezone
 from fastapi import HTTPException, status as http_status
 from app.models.schemas import Ticket
 from app.services.audit import log_event
@@ -17,7 +18,8 @@ def _hydrate():
     except Exception: pass
 _hydrate()
 def create_ticket(conversation_id: str, summary: str, priority: str = "normal") -> Ticket:
-    ticket = Ticket(id=str(uuid4()), conversation_id=conversation_id, summary=summary, priority=priority)
+    now = datetime.now(timezone.utc).isoformat()
+    ticket = Ticket(id=str(uuid4()), conversation_id=conversation_id, summary=summary, priority=priority, status="open", created_at=now, updated_at=now)
     _TICKETS[ticket.id] = ticket; _persist(ticket)
     log_event("ticket.created", {"ticket_id": ticket.id, "conversation_id": conversation_id, "priority": priority})
     return ticket
@@ -32,6 +34,7 @@ def update_ticket(ticket_id: str, *, status: str | None = None, priority: str | 
     if summary: ticket.summary = summary
     if assignee is not None: ticket.assignee = assignee
     if internal_note: ticket.internal_notes = [*ticket.internal_notes, internal_note]
+    ticket.updated_at = datetime.now(timezone.utc).isoformat()
     _persist(ticket)
     log_event("ticket.updated", {"ticket_id": ticket_id, "status": ticket.status, "priority": ticket.priority, "assignee": ticket.assignee, "internal_note_added": bool(internal_note)})
     return ticket

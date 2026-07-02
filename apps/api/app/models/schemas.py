@@ -15,7 +15,7 @@ class Conversation(BaseModel):
 class ConversationMessage(BaseModel):
     id: str; conversation_id: str; role: str; content: str; created_at: str
 class Ticket(BaseModel):
-    id: str; conversation_id: str; summary: str; status: str = "open"; priority: str = "normal"; assignee: str | None = None; internal_notes: list[str] = []
+    id: str; conversation_id: str; summary: str; status: str = "open"; priority: str = "normal"; assignee: str | None = None; internal_notes: list[str] = []; created_at: str | None = None; updated_at: str | None = None
 class KnowledgeArticleBase(BaseModel):
     title: str; body: str; tags: list[str] = []
 class KnowledgeArticleCreate(KnowledgeArticleBase):
@@ -23,7 +23,7 @@ class KnowledgeArticleCreate(KnowledgeArticleBase):
 class KnowledgeArticleUpdate(KnowledgeArticleBase):
     pass
 class KnowledgeArticle(KnowledgeArticleBase):
-    id: str
+    id: str; updated_at: str | None = None
 class AuditLog(BaseModel):
     event_type: str; payload: dict; created_at: str
 class LifecycleEvent(BaseModel):

@@ -3,8 +3,8 @@ export type Page<T> = { items:T[]; page:number; page_size:number; total:number }
 export type ChatResponse = { conversation_id: string; message: string; redacted: boolean; handoff_required: boolean; ticket_id?: string | null };
 export type Conversation = { id: string; user_id?: string | null; status: string; created_at: string; updated_at: string };
 export type Message = { id: string; conversation_id: string; role: string; content: string; created_at: string };
-export type Ticket = { id: string; conversation_id: string; summary: string; status: string; priority: string };
-export type KnowledgeArticle = { id: string; title: string; body: string; tags: string[] };
+export type Ticket = { id: string; conversation_id: string; summary: string; status: string; priority: string; assignee?: string | null; created_at?: string | null; updated_at?: string | null };
+export type KnowledgeArticle = { id: string; title: string; body: string; tags: string[]; updated_at?: string | null };
 async function json<T>(path: string, init?: RequestInit): Promise<T> { const r = await fetch(`${API_BASE}${path}`, { cache: 'no-store', ...init }); if (!r.ok) { const body = await r.text().catch(()=>''); throw new Error(`${path}: ${r.status} ${body}`); } return r.json(); }
 const withPage = (path:string) => `${path}${path.includes('?') ? '&' : '?'}paginated=true&page_size=50`;
 const unwrap = async <T>(p: Promise<T[]|Page<T>>) => { const r = await p; return Array.isArray(r) ? r : r.items; };
@@ -19,4 +19,4 @@ export const getTickets = () => unwrap(json<Ticket[]|Page<Ticket>>(withPage('/ap
 export const updateTicket = (id:string, payload: Partial<Ticket>) => json<Ticket>(`/api/v1/tickets/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
 export const getKnowledge = (q?: string) => unwrap(json<KnowledgeArticle[]|Page<KnowledgeArticle>>(withPage(`/api/v1/knowledge${q ? `?q=${encodeURIComponent(q)}` : ''}`)));
 export const getMessages = (id:string) => json<Message[]>(`/api/v1/conversations/${id}/messages`);
-export const createTicket = (conversation_id: string, summary: string) => json<Ticket>('/api/v1/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({conversation_id, summary}) });
+export const createTicket = (conversation_id: string, summary: string) => json<Ticket>('/api/v1/chat/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({conversation_id, summary}) });
