@@ -1,4 +1,4 @@
-import os, time
+import os, time, re
 from app.plugins.base import AIProvider, PluginMetadata
 
 class ProviderConfigurationError(RuntimeError): pass
@@ -8,8 +8,27 @@ class LLMProvider(AIProvider): pass
 class MockLLMProvider(LLMProvider):
     metadata = PluginMetadata(name="mock", enabled=True, description="Deterministic free mock provider")
     capabilities = ["chat", "completion", "classification", "summarization"]
+
+    _RESPONSES = [
+        (("dispute", "chargeback", "unauthorized charge", "card charge"), "I can help with that card dispute. Please confirm the merchant name, transaction date, and amount—do not share your full card number. I will document the dispute details and a specialist may follow up if provisional credit review is needed."),
+        (("transfer failed", "failed transfer", "wire failed", "ach failed", "payment failed", "transfer didn't go", "transfer did not go"), "I’m sorry the transfer failed. Please check whether funds were debited, confirm the destination bank nickname and amount, and avoid re-sending until we verify the status. If money left your account, I can help create a ticket for operations review."),
+        (("locked", "lockout", "can't log in", "cannot log in", "account locked"), "I can help with a locked account. For your safety, use the password reset and identity verification flow in the app. If you still cannot access the account, I can escalate to an account access specialist."),
+        (("refund", "refunded", "refund status", "return"), "I can check refund next steps. Refund timing depends on the merchant and payment rail; card refunds commonly take several business days after the merchant releases funds. Share the merchant, amount, and date—never full card details."),
+        (("fraud", "scam", "stolen", "unauthorized", "suspicious", "compromised"), "Fraud concerns are urgent. Please freeze the affected card in the app if available, change your password from a trusted device, and review recent transactions. I can notify a specialist and help capture the suspicious activity details."),
+        (("password", "security", "2fa", "mfa", "passcode", "reset login"), "For password or security issues, reset your password from the official FinGuard app or website and enable multi-factor authentication. I will never ask for your password, one-time code, or full account number."),
+    ]
+
+    @staticmethod
+    def _latest_customer_text(prompt: str) -> str:
+        matches = re.findall(r"customer:\s*(.*)", prompt, flags=re.IGNORECASE)
+        return (matches[-1] if matches else prompt).lower()
+
     async def complete(self, prompt: str, *, system_prompt: str | None = None) -> str:
-        return "I can help with that. I have noted the details securely and will guide you through the next support step."
+        text = self._latest_customer_text(prompt)
+        for keywords, response in self._RESPONSES:
+            if any(keyword in text for keyword in keywords):
+                return response
+        return "I can help with that. Please share the issue type, relevant dates, merchant or transfer details, and the outcome you need. For your security, do not send passwords, one-time codes, full card numbers, or full account numbers."
 
 class DisabledHTTPProvider(LLMProvider):
     def __init__(self, name: str, env_key: str, endpoint_env: str | None = None):

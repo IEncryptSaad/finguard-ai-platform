@@ -54,6 +54,9 @@ def tickets(page:int=1,page_size:int=50,status:str|None=None,priority:str|None=N
     items=[t for t in list_tickets() if (status is None or t.status==status) and (priority is None or t.priority==priority)]; return _page(items,page,page_size,'id','desc',paginated)
 @router.post('/tickets')
 def ticket(payload: TicketCreate, user=Depends(require('ticket:create'))): return create_ticket(payload.conversation_id, payload.summary, payload.priority)
+@router.post('/chat/tickets')
+def chat_ticket(payload: TicketCreate, user=Depends(require_chat_access)):
+    return create_ticket(payload.conversation_id, payload.summary, payload.priority)
 @router.patch('/tickets/{ticket_id}')
 def ticket_update(ticket_id: str, payload: TicketUpdate, user=Depends(require('ticket:update'))): return update_ticket(ticket_id, status=payload.status, priority=payload.priority, summary=payload.summary, assignee=payload.assignee, internal_note=payload.internal_note)
 @router.get('/knowledge', response_model=list[KnowledgeArticle]|dict)
